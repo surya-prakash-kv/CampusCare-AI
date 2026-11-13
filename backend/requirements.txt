@@ -3,3 +3,5 @@ uvicorn[standard]
 psycopg[binary]
 email-validator
 argon2-cffi
+PyJWT
+python-multipart

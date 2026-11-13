@@ -42,3 +42,8 @@ class RegisteredStudent(BaseModel):
 class StudentRegisterResponse(BaseModel):
     message: str
     student: RegisteredStudent
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"]
+    expires_in: int

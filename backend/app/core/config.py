@@ -29,3 +29,22 @@ def validate_database_config():
             "Missing database settings: "
             + ", ".join(missing_settings)
         )
+
+JWT_SECRET = os.getenv("JWT_SECRET")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+)
+
+def validate_jwt_config():
+    if not JWT_SECRET:
+        raise RuntimeError("JWT_SECRET is not configured")
+
+    if len(JWT_SECRET) < 32:
+        raise RuntimeError("JWT_SECRET must contain at least 32 characters")
+
+    if JWT_ALGORITHM != "HS256":
+        raise RuntimeError("Only HS256 JWT algorithm is supported")
+
+    if ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
+        raise RuntimeError("Token expiration must be greater than zero")
