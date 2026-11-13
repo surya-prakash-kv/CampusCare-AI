@@ -1,13 +1,25 @@
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    status,
+    HTTPException,
+)
 from psycopg import Connection
 
 from app.core.security import require_role
 from app.db.connection import get_db
+from app.repositories.complaint import (
+    mark_ai_classification_pending,
+)
 from app.schemas.complaint import (
     ComplaintCreateRequest,
     ComplaintResponse,
     ComplaintStatusUpdateRequest,
-    ComplaintHistoryResponse
+    ComplaintHistoryResponse,
+)
+from app.services.ai.background import (
+    process_complaint_classification,
 )
 from app.services.complaint import (
     submit_complaint,
@@ -15,33 +27,48 @@ from app.services.complaint import (
     get_complaint_details,
     list_all_complaints,
     change_complaint_status,
-    get_complaint_history_details
+    get_complaint_history_details,
 )
 
 
 router = APIRouter(
     prefix="/api/complaints",
-    tags=["Complaints"]
+    tags=["Complaints"],
 )
 
 
 @router.post(
     "",
     status_code=status.HTTP_201_CREATED,
-    response_model=ComplaintResponse
+    response_model=ComplaintResponse,
 )
 def create_student_complaint(
     complaint_data: ComplaintCreateRequest,
+    background_tasks: BackgroundTasks,
     db: Connection = Depends(get_db),
-    current_user: dict = Depends(require_role("STUDENT"))
+    current_user: dict = Depends(require_role("STUDENT")),
 ):
     complaint = submit_complaint(
         db=db,
         student_id=current_user["id"],
         title=complaint_data.title,
         description=complaint_data.description,
-        category=complaint_data.category
+        category=complaint_data.category,
     )
+
+    with db.transaction():
+        ai_scheduled = mark_ai_classification_pending(
+            db=db,
+            complaint_id=complaint[0],
+        )
+
+    if ai_scheduled:
+        background_tasks.add_task(
+            process_complaint_classification,
+            complaint_id=complaint[0],
+            title=complaint[3],
+            description=complaint[4],
+        )
 
     return {
         "id": complaint[0],
@@ -53,20 +80,21 @@ def create_student_complaint(
         "priority": complaint[6],
         "status": complaint[7],
         "created_at": complaint[8],
-        "updated_at": complaint[9]
+        "updated_at": complaint[9],
     }
+
 
 @router.get(
     "/my",
-    response_model=list[ComplaintResponse]
+    response_model=list[ComplaintResponse],
 )
 def read_my_complaints(
     db: Connection = Depends(get_db),
-    current_user: dict = Depends(require_role("STUDENT"))
+    current_user: dict = Depends(require_role("STUDENT")),
 ):
     complaints = list_student_complaints(
         db=db,
-        student_id=current_user["id"]
+        student_id=current_user["id"],
     )
 
     return [
@@ -80,32 +108,33 @@ def read_my_complaints(
             "priority": complaint[6],
             "status": complaint[7],
             "created_at": complaint[8],
-            "updated_at": complaint[9]
+            "updated_at": complaint[9],
         }
         for complaint in complaints
     ]
 
+
 @router.get(
     "/{complaint_id}",
-    response_model=ComplaintResponse
+    response_model=ComplaintResponse,
 )
 def read_complaint_details(
     complaint_id: int,
     db: Connection = Depends(get_db),
     current_user: dict = Depends(
         require_role("STUDENT", "ADMIN")
-    )
+    ),
 ):
     complaint = get_complaint_details(
         db=db,
         complaint_id=complaint_id,
-        current_user=current_user
+        current_user=current_user,
     )
 
     if complaint is None:
         raise HTTPException(
             status_code=404,
-            detail="Complaint not found"
+            detail="Complaint not found",
         )
 
     return {
@@ -118,16 +147,17 @@ def read_complaint_details(
         "priority": complaint[6],
         "status": complaint[7],
         "created_at": complaint[8],
-        "updated_at": complaint[9]
+        "updated_at": complaint[9],
     }
+
 
 @router.get(
     "/admin/all",
-    response_model=list[ComplaintResponse]
+    response_model=list[ComplaintResponse],
 )
 def read_all_complaints(
     db: Connection = Depends(get_db),
-    current_user: dict = Depends(require_role("ADMIN"))
+    current_user: dict = Depends(require_role("ADMIN")),
 ):
     complaints = list_all_complaints(db=db)
 
@@ -142,20 +172,21 @@ def read_all_complaints(
             "priority": complaint[6],
             "status": complaint[7],
             "created_at": complaint[8],
-            "updated_at": complaint[9]
+            "updated_at": complaint[9],
         }
         for complaint in complaints
     ]
 
+
 @router.patch(
     "/admin/{complaint_id}/status",
-    response_model=ComplaintResponse
+    response_model=ComplaintResponse,
 )
 def update_status(
     complaint_id: int,
     status_data: ComplaintStatusUpdateRequest,
     db: Connection = Depends(get_db),
-    current_user: dict = Depends(require_role("ADMIN"))
+    current_user: dict = Depends(require_role("ADMIN")),
 ):
     try:
         complaint = change_complaint_status(
@@ -163,18 +194,18 @@ def update_status(
             complaint_id=complaint_id,
             admin_id=current_user["id"],
             new_status=status_data.status,
-            remarks=status_data.remarks
+            remarks=status_data.remarks,
         )
     except ValueError as error:
         raise HTTPException(
             status_code=409,
-            detail=str(error)
-        )
+            detail=str(error),
+        ) from error
 
     if complaint is None:
         raise HTTPException(
             status_code=404,
-            detail="Complaint not found"
+            detail="Complaint not found",
         )
 
     return {
@@ -187,30 +218,31 @@ def update_status(
         "priority": complaint[6],
         "status": complaint[7],
         "created_at": complaint[8],
-        "updated_at": complaint[9]
+        "updated_at": complaint[9],
     }
+
 
 @router.get(
     "/{complaint_id}/history",
-    response_model=list[ComplaintHistoryResponse]
+    response_model=list[ComplaintHistoryResponse],
 )
 def get_history(
     complaint_id: int,
     db: Connection = Depends(get_db),
     current_user: dict = Depends(
         require_role("STUDENT", "ADMIN")
-    )
+    ),
 ):
     history = get_complaint_history_details(
         db=db,
         complaint_id=complaint_id,
-        current_user=current_user
+        current_user=current_user,
     )
 
     if history is None:
         raise HTTPException(
             status_code=404,
-            detail="Complaint not found"
+            detail="Complaint not found",
         )
 
     return [
@@ -221,7 +253,7 @@ def get_history(
             "old_status": row[3],
             "new_status": row[4],
             "remarks": row[5],
-            "created_at": row[6]
+            "created_at": row[6],
         }
         for row in history
     ]

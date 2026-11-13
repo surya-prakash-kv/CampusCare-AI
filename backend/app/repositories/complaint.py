@@ -1,4 +1,4 @@
-﻿from psycopg import Connection
+from psycopg import Connection
 
 
 def create_complaint(
@@ -199,3 +199,60 @@ def get_complaint_history(
         )
 
         return cursor.fetchall()
+
+
+def mark_ai_classification_pending(
+    db: Connection,
+    complaint_id: int,
+):
+    with db.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE complaints
+            SET ai_classification_status = 'PENDING'
+            WHERE id = %s
+              AND ai_classification_status IN (
+                  'NOT_STARTED',
+                  'FAILED'
+              );
+            """,
+            (complaint_id,),
+        )
+
+        return cursor.rowcount == 1
+
+
+def update_ai_classification(
+    db: Connection,
+    complaint_id: int,
+    suggested_category: str,
+    suggested_priority: str,
+    confidence: float,
+    reason: str,
+    model: str,
+):
+    with db.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE complaints
+            SET
+                ai_suggested_category = %s,
+                ai_suggested_priority = %s,
+                ai_confidence = %s,
+                ai_reason = %s,
+                ai_classification_status = 'COMPLETED',
+                ai_model = %s
+            WHERE id = %s
+              AND ai_classification_status = 'PENDING';
+            """,
+            (
+                suggested_category,
+                suggested_priority,
+                confidence,
+                reason,
+                model,
+                complaint_id,
+            ),
+        )
+
+        return cursor.rowcount == 1

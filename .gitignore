@@ -26,3 +26,7 @@ coverage/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Local password reset utilities (never commit)
+backend/reset_account_password.py
+backend/reset_student_password.py
