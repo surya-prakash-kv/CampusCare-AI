@@ -256,3 +256,169 @@ def update_ai_classification(
         )
 
         return cursor.rowcount == 1
+
+
+def get_pending_ai_reviews(db: Connection):
+    with db.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                student_id,
+                title,
+                description,
+                category,
+                priority,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_reason,
+                ai_model,
+                ai_classification_status,
+                created_at
+            FROM complaints
+            WHERE ai_classification_status = 'COMPLETED'
+              AND ai_suggested_category IS NOT NULL
+              AND ai_suggested_priority IS NOT NULL
+              AND ai_confidence IS NOT NULL
+              AND ai_model IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM complaint_ai_reviews r
+                  WHERE r.complaint_id = complaints.id
+               )
+            ORDER BY created_at ASC, id ASC;
+            """
+        )
+
+        return cursor.fetchall()
+
+
+def get_complaint_ai_review_for_update(
+    db: Connection,
+    complaint_id: int,
+):
+    with db.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                category,
+                priority,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_reason,
+                ai_model,
+                ai_classification_status
+            FROM complaints
+            WHERE id = %s
+            FOR UPDATE;
+            """,
+            (complaint_id,),
+        )
+
+        return cursor.fetchone()
+
+
+def create_complaint_ai_review(
+    db: Connection,
+    complaint_id: int,
+    reviewed_by: int,
+    decision: str,
+    ai_suggested_category: str,
+    ai_suggested_priority: str,
+    ai_confidence: float,
+    ai_model: str,
+    original_category: str | None,
+    original_priority: str,
+    final_category: str | None,
+    final_priority: str,
+    remarks: str | None,
+):
+    with db.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO complaint_ai_reviews (
+                complaint_id,
+                reviewed_by,
+                decision,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_model,
+                original_category,
+                original_priority,
+                final_category,
+                final_priority,
+                remarks
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s
+            )
+            RETURNING
+                id,
+                complaint_id,
+                reviewed_by,
+                decision,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_model,
+                original_category,
+                original_priority,
+                final_category,
+                final_priority,
+                remarks,
+                reviewed_at;
+            """,
+            (
+                complaint_id,
+                reviewed_by,
+                decision,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_model,
+                original_category,
+                original_priority,
+                final_category,
+                final_priority,
+                remarks,
+            ),
+        )
+
+        return cursor.fetchone()
+
+
+def get_complaint_ai_review_history(
+    db: Connection,
+    complaint_id: int,
+):
+    with db.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                complaint_id,
+                reviewed_by,
+                decision,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_model,
+                original_category,
+                original_priority,
+                final_category,
+                final_priority,
+                remarks,
+                reviewed_at
+            FROM complaint_ai_reviews
+            WHERE complaint_id = %s
+            ORDER BY reviewed_at ASC, id ASC;
+            """,
+            (complaint_id,),
+        )
+
+        return cursor.fetchall()
