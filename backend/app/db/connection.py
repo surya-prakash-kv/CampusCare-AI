@@ -22,3 +22,8 @@ def get_db_connection():
     )
 
     return connection
+
+
+def get_db():
+    with get_db_connection() as connection:
+        yield connection

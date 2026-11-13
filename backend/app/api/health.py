@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
-from app.db.connection import get_db_connection
+from app.db.connection import get_db
 
 
 router = APIRouter(
@@ -10,12 +10,11 @@ router = APIRouter(
 
 
 @router.get("/database")
-def check_database_health():
+def check_database_health(db=Depends(get_db)):
     try:
-        with get_db_connection() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1;")
-                cursor.fetchone()
+        with db.cursor() as cursor:
+            cursor.execute("SELECT 1;")
+            cursor.fetchone()
 
         return {
             "database": "connected",
