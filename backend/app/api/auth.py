@@ -1,8 +1,10 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, status
+﻿
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from psycopg import Connection
 from psycopg.errors import UniqueViolation
 
+from app.core.security import require_role
 from app.db.connection import get_db
 from app.schemas.auth import (
     StudentRegisterRequest,
@@ -11,7 +13,6 @@ from app.schemas.auth import (
 )
 from app.services.password import hash_password, verify_password
 from app.services.token import create_access_token
-from app.core.security import get_current_user
 
 
 router = APIRouter(
@@ -66,10 +67,12 @@ def register_student(
 
     except UniqueViolation:
         db.rollback()
+
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email address is already registered"
         )
+
 
 @router.post(
     "/login",
@@ -113,8 +116,9 @@ def login_student(
         "expires_in": expires_in
     }
 
+
 @router.get("/me")
 def read_current_user(
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_role("STUDENT"))
 ):
     return current_user
