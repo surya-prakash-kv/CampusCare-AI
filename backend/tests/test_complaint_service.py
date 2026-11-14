@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.services.complaint import submit_complaint
+from uuid import uuid4
 
 
 @pytest.fixture
@@ -25,7 +26,8 @@ def test_submit_complaint_success(db, monkeypatch):
 
     create_complaint_mock = MagicMock(return_value=complaint)
     create_history_mock = MagicMock()
-    pending_mock = MagicMock(return_value=True)
+    attempt_id = uuid4()
+    pending_mock = MagicMock(return_value=attempt_id)
 
     monkeypatch.setattr(
         "app.services.complaint.create_complaint",
@@ -50,7 +52,7 @@ def test_submit_complaint_success(db, monkeypatch):
         category="HOSTEL",
     )
 
-    assert result == complaint
+    assert result == (complaint, attempt_id)
 
     create_complaint_mock.assert_called_once()
     create_history_mock.assert_called_once_with(
@@ -86,7 +88,7 @@ def test_submit_complaint_rolls_back_when_pending_update_fails(
 
     create_complaint_mock = MagicMock(return_value=complaint)
     create_history_mock = MagicMock()
-    pending_mock = MagicMock(return_value=False)
+    pending_mock = MagicMock(return_value=None)
 
     monkeypatch.setattr(
         "app.services.complaint.create_complaint",

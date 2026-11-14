@@ -11,6 +11,17 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna")
+AI_RECOVERY_INTERVAL_SECONDS = int(
+    os.getenv("AI_RECOVERY_INTERVAL_SECONDS", "30")
+)
+
+AI_RECOVERY_STALE_AFTER_SECONDS = int(
+    os.getenv("AI_RECOVERY_STALE_AFTER_SECONDS", "120")
+)
+
+AI_RECOVERY_BATCH_SIZE = int(
+    os.getenv("AI_RECOVERY_BATCH_SIZE", "10")
+)
 
 
 def validate_database_config():
@@ -50,3 +61,22 @@ def validate_jwt_config():
 
     if ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
         raise RuntimeError("Token expiration must be greater than zero")
+
+def validate_ai_recovery_config():
+    settings = {
+        "AI_RECOVERY_INTERVAL_SECONDS": AI_RECOVERY_INTERVAL_SECONDS,
+        "AI_RECOVERY_STALE_AFTER_SECONDS": AI_RECOVERY_STALE_AFTER_SECONDS,
+        "AI_RECOVERY_BATCH_SIZE": AI_RECOVERY_BATCH_SIZE,
+    }
+
+    invalid_settings = [
+        name
+        for name, value in settings.items()
+        if value <= 0
+    ]
+
+    if invalid_settings:
+        raise RuntimeError(
+            "AI recovery settings must be positive: "
+            + ", ".join(invalid_settings)
+        )

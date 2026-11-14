@@ -1,4 +1,6 @@
-﻿from psycopg import Connection
+﻿from uuid import uuid4
+
+from psycopg import Connection
 
 
 def create_complaint(
@@ -205,28 +207,117 @@ def mark_ai_classification_pending(
     db: Connection,
     complaint_id: int,
 ):
+    attempt_id = uuid4()
+
     with db.cursor() as cursor:
         cursor.execute(
             """
             UPDATE complaints
             SET
                 ai_classification_status = 'PENDING',
-                ai_classification_started_at = CURRENT_TIMESTAMP
+                ai_classification_started_at = CURRENT_TIMESTAMP,
+                ai_classification_attempt_id = %s,
+                ai_classification_attempt_count =
+                    ai_classification_attempt_count + 1
             WHERE id = %s
-              AND ai_classification_status IN (
-                  'NOT_STARTED',
-                  'FAILED'
-              );
+              AND ai_classification_status = 'NOT_STARTED'
+              AND ai_classification_attempt_count < 5;
             """,
-            (complaint_id,),
+            (attempt_id, complaint_id),
         )
 
-    return cursor.rowcount == 1
+        if cursor.rowcount != 1:
+            return None
+
+    return attempt_id
+
+
+
+def recover_stale_ai_classifications(
+    db: Connection,
+    stale_after_seconds: int = 120,
+    batch_size: int = 10,
+):
+    if stale_after_seconds <= 0 or batch_size <= 0:
+        raise ValueError(
+            "Stale timeout and batch size must be positive."
+        )
+
+    with db.cursor() as cursor:
+        # Expired fifth attempts cannot be retried.
+        cursor.execute(
+            """
+            UPDATE complaints
+            SET ai_classification_status = 'FAILED'
+            WHERE ai_classification_status = 'PENDING'
+              AND ai_classification_attempt_count >= 5
+              AND ai_classification_started_at <=
+                  CURRENT_TIMESTAMP -
+                  (%s * INTERVAL '1 second');
+            """,
+            (stale_after_seconds,),
+        )
+
+        # Retry FAILED complaints and reclaim expired PENDING attempts.
+        cursor.execute(
+            """
+            WITH candidates AS MATERIALIZED (
+                SELECT id
+                FROM complaints
+                WHERE ai_classification_attempt_count < 5
+                  AND (
+                      (
+                          ai_classification_status = 'FAILED'
+                          AND ai_classification_started_at <=
+                              CURRENT_TIMESTAMP -
+                              (%s * INTERVAL '1 second')
+                      )
+                      OR (
+                          ai_classification_status = 'PENDING'
+                          AND ai_classification_started_at <=
+                              CURRENT_TIMESTAMP -
+                              (%s * INTERVAL '1 second')
+                      )
+                  )
+                ORDER BY
+                    CASE
+                        WHEN ai_classification_status = 'FAILED'
+                        THEN 0
+                        ELSE 1
+                    END,
+                    id ASC
+                LIMIT %s
+                FOR UPDATE SKIP LOCKED
+            )
+            UPDATE complaints AS c
+            SET
+                ai_classification_status = 'PENDING',
+                ai_classification_attempt_id = gen_random_uuid(),
+                ai_classification_attempt_count =
+                    c.ai_classification_attempt_count + 1,
+                ai_classification_started_at = CURRENT_TIMESTAMP
+            FROM candidates
+            WHERE c.id = candidates.id
+            RETURNING
+                c.id,
+                c.title,
+                c.description,
+                c.ai_classification_attempt_id;
+            """,
+            (
+                stale_after_seconds,
+                stale_after_seconds,
+                batch_size,
+            ),
+        )
+
+        return cursor.fetchall()
 
 
 def update_ai_classification(
     db: Connection,
     complaint_id: int,
+    attempt_id,
     suggested_category: str,
     suggested_priority: str,
     confidence: float,
@@ -245,7 +336,8 @@ def update_ai_classification(
                 ai_classification_status = 'COMPLETED',
                 ai_model = %s
             WHERE id = %s
-              AND ai_classification_status = 'PENDING';
+              AND ai_classification_status = 'PENDING'
+              AND ai_classification_attempt_id = %s;
             """,
             (
                 suggested_category,
@@ -254,6 +346,7 @@ def update_ai_classification(
                 reason,
                 model,
                 complaint_id,
+                attempt_id,
             ),
         )
 

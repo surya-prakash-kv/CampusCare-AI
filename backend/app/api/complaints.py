@@ -9,9 +9,6 @@ from psycopg import Connection
 
 from app.core.security import require_role
 from app.db.connection import get_db
-from app.repositories.complaint import (
-    mark_ai_classification_pending,
-)
 from app.schemas.complaint import (
     ComplaintCreateRequest,
     ComplaintResponse,
@@ -39,7 +36,6 @@ from app.services.ai_review import (
     review_complaint_ai_classification,
 )
 from app.repositories.complaint import (
-    mark_ai_classification_pending,
     get_complaint_ai_review_history,
 )
 
@@ -61,7 +57,7 @@ def create_student_complaint(
     db: Connection = Depends(get_db),
     current_user: dict = Depends(require_role("STUDENT")),
 ):
-    complaint = submit_complaint(
+    complaint, attempt_id = submit_complaint(
         db=db,
         student_id=current_user["id"],
         title=complaint_data.title,
@@ -73,7 +69,8 @@ def create_student_complaint(
     process_complaint_classification,
     complaint_id=complaint[0],
     title=complaint[3],
-    description=complaint[4]
+    description=complaint[4],
+    attempt_id=attempt_id
     )
 
     return {

@@ -1,6 +1,7 @@
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -50,7 +51,11 @@ def test_complaint_creation_schedules_ai_classification(
         datetime.now(timezone.utc),
     )
 
-    submit_mock = MagicMock(return_value=complaint)
+    attempt_id = uuid4()
+
+    submit_mock = MagicMock(
+        return_value=(complaint, attempt_id)
+    )
     background_mock = MagicMock()
 
     monkeypatch.setattr(
@@ -80,12 +85,16 @@ def test_complaint_creation_schedules_ai_classification(
     assert response_data["category"] == "HOSTEL"
     assert response_data["priority"] == "MEDIUM"
 
+    # Attempt UUID must not be exposed in the public response.
+    assert "attempt_id" not in response_data
+
     submit_mock.assert_called_once()
 
     background_mock.assert_called_once_with(
         complaint_id=101,
         title="Hostel WiFi not working",
         description="Students cannot access hostel WiFi.",
+        attempt_id=attempt_id,
     )
 
 
@@ -110,9 +119,11 @@ def test_complaint_creation_adds_ai_background_task(
         datetime.now(timezone.utc),
     )
 
+    attempt_id = uuid4()
+
     monkeypatch.setattr(
         "app.api.complaints.submit_complaint",
-        lambda **kwargs: complaint,
+        lambda **kwargs: (complaint, attempt_id),
     )
 
     background_mock = MagicMock()
@@ -137,6 +148,7 @@ def test_complaint_creation_adds_ai_background_task(
         complaint_id=102,
         title="Library portal unavailable",
         description="Students cannot access the library portal.",
+        attempt_id=attempt_id,
     )
 
 

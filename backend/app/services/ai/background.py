@@ -1,4 +1,5 @@
 import logging
+from uuid import UUID
 
 from app.core.config import OPENAI_MODEL
 from app.db.connection import get_db_connection
@@ -15,6 +16,7 @@ def process_complaint_classification(
     complaint_id: int,
     title: str,
     description: str,
+    attempt_id: UUID,
 ):
     try:
         classification = classify_complaint(
@@ -30,20 +32,33 @@ def process_complaint_classification(
                         UPDATE complaints
                         SET ai_classification_status = 'SKIPPED'
                         WHERE id = %s
-                          AND ai_classification_status = 'PENDING';
+                          AND ai_classification_status = 'PENDING'
+                          AND ai_classification_attempt_id = %s;
                         """,
-                        (complaint_id,)
+                        (complaint_id, attempt_id),
                     )
 
-                logger.info(
-                    "AI classification skipped for complaint %s.",
-                    complaint_id,
-                )
+                    updated = cursor.rowcount == 1
+
+                if updated:
+                    logger.info(
+                        "AI classification skipped for complaint %s.",
+                        complaint_id,
+                    )
+                else:
+                    logger.warning(
+                        "Skip status was not persisted because "
+                        "attempt %s no longer owns complaint %s.",
+                        attempt_id,
+                        complaint_id,
+                    )
+
                 return
 
             updated = update_ai_classification(
                 db=db,
                 complaint_id=complaint_id,
+                attempt_id=attempt_id,
                 suggested_category=classification.suggested_category,
                 suggested_priority=classification.suggested_priority,
                 confidence=classification.confidence,
@@ -54,7 +69,8 @@ def process_complaint_classification(
             if not updated:
                 logger.warning(
                     "AI classification result was not persisted "
-                    "for complaint %s.",
+                    "because attempt %s no longer owns complaint %s.",
+                    attempt_id,
                     complaint_id,
                 )
 
@@ -70,12 +86,24 @@ def process_complaint_classification(
                     cursor.execute(
                         """
                         UPDATE complaints
-                        SET ai_classification_status = 'FAILED'
+                        SET
+                             ai_classification_status = 'FAILED',
+                             ai_classification_started_at = CURRENT_TIMESTAMP
                         WHERE id = %s
-                          AND ai_classification_status = 'PENDING';
+                          AND ai_classification_status = 'PENDING'
+                          AND ai_classification_attempt_id = %s;
                         """,
-                        (complaint_id,)
+                        (complaint_id, attempt_id),
                     )
+
+                    if cursor.rowcount != 1:
+                        logger.warning(
+                            "Failure status was not persisted because "
+                            "attempt %s no longer owns complaint %s.",
+                            attempt_id,
+                            complaint_id,
+                        )
+
         except Exception:
             logger.exception(
                 "Could not update AI failure status for complaint %s.",

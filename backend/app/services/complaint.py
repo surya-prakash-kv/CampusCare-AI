@@ -35,17 +35,17 @@ def submit_complaint(
             remarks="Complaint submitted"
         )
 
-        ai_scheduled = mark_ai_classification_pending(
+        attempt_id = mark_ai_classification_pending(
             db=db,
             complaint_id=complaint[0],
         )
 
-        if not ai_scheduled:
+        if attempt_id is None:
             raise RuntimeError(
                 "Could not mark complaint for AI classification."
             )
 
-    return complaint
+    return complaint, attempt_id
 
 
 

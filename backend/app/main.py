@@ -1,14 +1,66 @@
+
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.api.health import router as health_router
 from app.api.auth import router as auth_router
 from app.api.complaints import router as complaints_router
+from app.core.config import (
+    AI_RECOVERY_INTERVAL_SECONDS,
+    validate_ai_recovery_config,
+)
+from app.services.ai.recovery import recover_stale_classifications
+
+
+logger = logging.getLogger(__name__)
+
+
+async def ai_recovery_loop():
+    while True:
+        try:
+            await asyncio.to_thread(
+                recover_stale_classifications
+            )
+        except Exception:
+            logger.exception(
+                "Unexpected error in AI recovery scheduler."
+            )
+
+        await asyncio.sleep(AI_RECOVERY_INTERVAL_SECONDS)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    validate_ai_recovery_config()
+
+    recovery_task = asyncio.create_task(
+        ai_recovery_loop(),
+        name="ai-classification-recovery",
+    )
+
+    logger.info("AI classification recovery scheduler started.")
+
+    try:
+        yield
+    finally:
+        recovery_task.cancel()
+
+        try:
+            await recovery_task
+        except asyncio.CancelledError:
+            logger.info(
+                "AI classification recovery scheduler stopped."
+            )
 
 
 app = FastAPI(
     title="CampusCare AI",
     description="AI-Powered Student Service Management Platform",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 
