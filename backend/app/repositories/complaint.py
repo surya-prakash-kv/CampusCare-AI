@@ -1,4 +1,4 @@
-from psycopg import Connection
+﻿from psycopg import Connection
 
 
 def create_complaint(
@@ -209,7 +209,9 @@ def mark_ai_classification_pending(
         cursor.execute(
             """
             UPDATE complaints
-            SET ai_classification_status = 'PENDING'
+            SET
+                ai_classification_status = 'PENDING',
+                ai_classification_started_at = CURRENT_TIMESTAMP
             WHERE id = %s
               AND ai_classification_status IN (
                   'NOT_STARTED',
@@ -219,7 +221,7 @@ def mark_ai_classification_pending(
             (complaint_id,),
         )
 
-        return cursor.rowcount == 1
+    return cursor.rowcount == 1
 
 
 def update_ai_classification(
