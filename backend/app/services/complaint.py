@@ -1,15 +1,18 @@
-﻿from psycopg import Connection
+
+from psycopg import Connection
 
 from app.repositories.complaint import (
     create_complaint,
     create_complaint_history,
     get_complaints_by_student,
     get_complaint_by_id,
+    get_complaint_by_id_for_update,
     get_all_complaints,
     update_complaint_status,
     get_complaint_history,
     mark_ai_classification_pending,
 )
+
 
 def submit_complaint(
     db: Connection,
@@ -48,7 +51,6 @@ def submit_complaint(
     return complaint, attempt_id
 
 
-
 def list_student_complaints(
     db: Connection,
     student_id: int
@@ -57,6 +59,7 @@ def list_student_complaints(
         db=db,
         student_id=student_id
     )
+
 
 def get_complaint_details(
     db: Connection,
@@ -79,8 +82,10 @@ def get_complaint_details(
 
     return complaint
 
+
 def list_all_complaints(db: Connection):
     return get_all_complaints(db=db)
+
 
 def change_complaint_status(
     db: Connection,
@@ -90,7 +95,7 @@ def change_complaint_status(
     remarks: str | None = None
 ):
     with db.transaction():
-        complaint = get_complaint_by_id(
+        complaint = get_complaint_by_id_for_update(
             db=db,
             complaint_id=complaint_id
         )
@@ -119,6 +124,7 @@ def change_complaint_status(
         )
 
         return updated_complaint
+
 
 def get_complaint_history_details(
     db: Connection,

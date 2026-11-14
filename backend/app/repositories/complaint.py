@@ -1,4 +1,4 @@
-﻿from uuid import uuid4
+from uuid import uuid4
 
 from psycopg import Connection
 
@@ -99,6 +99,37 @@ def get_complaints_by_student(
         )
 
         return cursor.fetchall()
+
+
+
+def get_complaint_by_id_for_update(
+    db: Connection,
+    complaint_id: int
+):
+    with db.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                student_id,
+                assigned_admin_id,
+                title,
+                description,
+                category,
+                priority,
+                status,
+                created_at,
+                updated_at
+            FROM complaints
+            WHERE id = %s
+            FOR UPDATE;
+            """,
+            (complaint_id,)
+        )
+
+        return cursor.fetchone()
+
+
 
 def get_complaint_by_id(
     db: Connection,
