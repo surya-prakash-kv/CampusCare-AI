@@ -69,19 +69,12 @@ def create_student_complaint(
         category=complaint_data.category,
     )
 
-    with db.transaction():
-        ai_scheduled = mark_ai_classification_pending(
-            db=db,
-            complaint_id=complaint[0],
-        )
-
-    if ai_scheduled:
-        background_tasks.add_task(
-            process_complaint_classification,
-            complaint_id=complaint[0],
-            title=complaint[3],
-            description=complaint[4],
-        )
+    background_tasks.add_task(
+    process_complaint_classification,
+    complaint_id=complaint[0],
+    title=complaint[3],
+    description=complaint[4]
+    )
 
     return {
         "id": complaint[0],

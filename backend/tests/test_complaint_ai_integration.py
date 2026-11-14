@@ -51,17 +51,11 @@ def test_complaint_creation_schedules_ai_classification(
     )
 
     submit_mock = MagicMock(return_value=complaint)
-    pending_mock = MagicMock(return_value=True)
     background_mock = MagicMock()
 
     monkeypatch.setattr(
         "app.api.complaints.submit_complaint",
         submit_mock,
-    )
-
-    monkeypatch.setattr(
-        "app.api.complaints.mark_ai_classification_pending",
-        pending_mock,
     )
 
     monkeypatch.setattr(
@@ -87,13 +81,6 @@ def test_complaint_creation_schedules_ai_classification(
     assert response_data["priority"] == "MEDIUM"
 
     submit_mock.assert_called_once()
-    pending_mock.assert_called_once_with(
-        db=db,
-        complaint_id=101,
-    )
-
-    # Ensure the PENDING status update is committed.
-    db.transaction.assert_called_once_with()
 
     background_mock.assert_called_once_with(
         complaint_id=101,
@@ -128,11 +115,6 @@ def test_complaint_creation_adds_ai_background_task(
         lambda **kwargs: complaint,
     )
 
-    monkeypatch.setattr(
-        "app.api.complaints.mark_ai_classification_pending",
-        lambda **kwargs: True,
-    )
-
     background_mock = MagicMock()
 
     monkeypatch.setattr(
@@ -158,35 +140,23 @@ def test_complaint_creation_adds_ai_background_task(
     )
 
 
-def test_ai_task_not_scheduled_when_pending_update_fails(
+def test_ai_task_not_scheduled_when_complaint_submission_fails(
     client,
     monkeypatch,
 ):
-    db = MagicMock()
     app.dependency_overrides[get_current_user] = override_student
+
+    db = MagicMock()
     app.dependency_overrides[get_db] = lambda: db
 
-    complaint = (
-        103,
-        1,
-        None,
-        "Transport delay",
-        "College bus service is delayed.",
-        "TRANSPORT",
-        "MEDIUM",
-        "OPEN",
-        datetime.now(timezone.utc),
-        datetime.now(timezone.utc),
-    )
+    def failed_submission(**kwargs):
+        raise RuntimeError(
+            "Could not mark complaint for AI classification."
+        )
 
     monkeypatch.setattr(
         "app.api.complaints.submit_complaint",
-        lambda **kwargs: complaint,
-    )
-
-    monkeypatch.setattr(
-        "app.api.complaints.mark_ai_classification_pending",
-        lambda **kwargs: False,
+        failed_submission,
     )
 
     background_mock = MagicMock()
@@ -196,16 +166,14 @@ def test_ai_task_not_scheduled_when_pending_update_fails(
         background_mock,
     )
 
-    response = client.post(
-        "/api/complaints",
-        json={
-            "title": "Transport delay",
-            "description": "College bus service is delayed.",
-            "category": "TRANSPORT",
-        },
-    )
+    with pytest.raises(RuntimeError):
+        client.post(
+            "/api/complaints",
+            json={
+                "title": "Transport delay",
+                "description": "College bus service is delayed.",
+                "category": "TRANSPORT",
+            },
+        )
 
-    assert response.status_code == 201
-
-    # AI classification must not be scheduled if PENDING update fails.
     background_mock.assert_not_called()

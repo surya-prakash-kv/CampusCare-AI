@@ -7,9 +7,9 @@ from app.repositories.complaint import (
     get_complaint_by_id,
     get_all_complaints,
     update_complaint_status,
-    get_complaint_history
+    get_complaint_history,
+    mark_ai_classification_pending,
 )
-
 
 def submit_complaint(
     db: Connection,
@@ -35,7 +35,18 @@ def submit_complaint(
             remarks="Complaint submitted"
         )
 
+        ai_scheduled = mark_ai_classification_pending(
+            db=db,
+            complaint_id=complaint[0],
+        )
+
+        if not ai_scheduled:
+            raise RuntimeError(
+                "Could not mark complaint for AI classification."
+            )
+
     return complaint
+
 
 
 def list_student_complaints(
