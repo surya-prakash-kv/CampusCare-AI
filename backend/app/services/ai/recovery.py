@@ -30,11 +30,17 @@ def recover_stale_classifications():
         if not recovered_complaints:
             return
 
+        logger.warning(
+            "AI recovery found %s stale classification attempts.",
+            len(recovered_complaints),
+        )
+
         def process_recovered_complaint(complaint):
             complaint_id, title, description, attempt_id = complaint
 
-            logger.warning(
-                "Recovering AI classification for complaint %s.",
+            logger.info(
+                "Reprocessing recovered AI classification "
+                "for complaint %s.",
                 complaint_id,
             )
 
@@ -59,7 +65,7 @@ def recover_stale_classifications():
             )
 
         logger.info(
-            "Processed %s recovered AI classification attempts.",
+            "Completed recovery cycle for %s AI classification attempts.",
             len(recovered_complaints),
         )
 

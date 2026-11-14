@@ -13,6 +13,7 @@ from app.core.config import (
     validate_ai_recovery_config,
 )
 from app.services.ai.recovery import recover_stale_classifications
+from app.api.ai_operations import router as ai_operations_router
 
 
 logger = logging.getLogger(__name__)
@@ -75,3 +76,4 @@ def home():
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(complaints_router)
+app.include_router(ai_operations_router)

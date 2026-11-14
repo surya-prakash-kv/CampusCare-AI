@@ -1,3 +1,4 @@
+
 import logging
 from uuid import UUID
 
@@ -66,7 +67,14 @@ def process_complaint_classification(
                 model=OPENAI_MODEL,
             )
 
-            if not updated:
+            if updated:
+                logger.info(
+                    "AI classification completed successfully "
+                    "for complaint %s using model %s.",
+                    complaint_id,
+                    OPENAI_MODEL,
+                )
+            else:
                 logger.warning(
                     "AI classification result was not persisted "
                     "because attempt %s no longer owns complaint %s.",
@@ -87,8 +95,8 @@ def process_complaint_classification(
                         """
                         UPDATE complaints
                         SET
-                             ai_classification_status = 'FAILED',
-                             ai_classification_started_at = CURRENT_TIMESTAMP
+                            ai_classification_status = 'FAILED',
+                            ai_classification_started_at = CURRENT_TIMESTAMP
                         WHERE id = %s
                           AND ai_classification_status = 'PENDING'
                           AND ai_classification_attempt_id = %s;
