@@ -16,6 +16,24 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna")
 
+RATE_LIMIT_HASH_SECRET = os.getenv("RATE_LIMIT_HASH_SECRET")
+
+LOGIN_RATE_LIMIT_EMAIL_IP_MAX_ATTEMPTS = int(
+    os.getenv("LOGIN_RATE_LIMIT_EMAIL_IP_MAX_ATTEMPTS", "5")
+)
+
+LOGIN_RATE_LIMIT_IP_MAX_ATTEMPTS = int(
+    os.getenv("LOGIN_RATE_LIMIT_IP_MAX_ATTEMPTS", "20")
+)
+
+LOGIN_RATE_LIMIT_WINDOW_SECONDS = int(
+    os.getenv("LOGIN_RATE_LIMIT_WINDOW_SECONDS", "900")
+)
+
+LOGIN_RATE_LIMIT_BLOCK_SECONDS = int(
+    os.getenv("LOGIN_RATE_LIMIT_BLOCK_SECONDS", "900")
+)
+
 AI_RECOVERY_INTERVAL_SECONDS = int(
     os.getenv("AI_RECOVERY_INTERVAL_SECONDS", "30")
 )
@@ -101,8 +119,47 @@ def validate_ai_recovery_config():
             + ", ".join(invalid_settings)
         )
 
+def validate_login_rate_limit_config():
+    if not RATE_LIMIT_HASH_SECRET:
+        raise RuntimeError(
+            "RATE_LIMIT_HASH_SECRET is not configured"
+        )
+
+    if len(RATE_LIMIT_HASH_SECRET) < 32:
+        raise RuntimeError(
+            "RATE_LIMIT_HASH_SECRET must contain at least 32 characters"
+        )
+
+    settings = {
+        "LOGIN_RATE_LIMIT_EMAIL_IP_MAX_ATTEMPTS": (
+            LOGIN_RATE_LIMIT_EMAIL_IP_MAX_ATTEMPTS
+        ),
+        "LOGIN_RATE_LIMIT_IP_MAX_ATTEMPTS": (
+            LOGIN_RATE_LIMIT_IP_MAX_ATTEMPTS
+        ),
+        "LOGIN_RATE_LIMIT_WINDOW_SECONDS": (
+            LOGIN_RATE_LIMIT_WINDOW_SECONDS
+        ),
+        "LOGIN_RATE_LIMIT_BLOCK_SECONDS": (
+            LOGIN_RATE_LIMIT_BLOCK_SECONDS
+        ),
+    }
+
+    invalid_settings = [
+        name
+        for name, value in settings.items()
+        if value <= 0
+    ]
+
+    if invalid_settings:
+        raise RuntimeError(
+            "Login rate-limit settings must be positive: "
+            + ", ".join(invalid_settings)
+        )
+
 
 def validate_application_config():
     validate_database_config()
     validate_jwt_config()
     validate_ai_recovery_config()
+    validate_login_rate_limit_config()

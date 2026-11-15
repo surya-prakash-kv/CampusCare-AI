@@ -99,3 +99,50 @@ def test_validate_database_config_rejects_non_positive_timeout(
         match="DB_CONNECT_TIMEOUT_SECONDS",
     ):
         config.validate_database_config()
+
+def test_validate_login_rate_limit_config_accepts_valid_settings(monkeypatch):
+    monkeypatch.setattr(config, "RATE_LIMIT_HASH_SECRET", "x" * 48)
+    monkeypatch.setattr(config, "LOGIN_RATE_LIMIT_EMAIL_IP_MAX_ATTEMPTS", 5)
+    monkeypatch.setattr(config, "LOGIN_RATE_LIMIT_IP_MAX_ATTEMPTS", 20)
+    monkeypatch.setattr(config, "LOGIN_RATE_LIMIT_WINDOW_SECONDS", 900)
+    monkeypatch.setattr(config, "LOGIN_RATE_LIMIT_BLOCK_SECONDS", 900)
+
+    config.validate_login_rate_limit_config()
+
+
+@pytest.mark.parametrize(
+    ("secret", "expected_error"),
+    [
+        (None, "RATE_LIMIT_HASH_SECRET is not configured"),
+        ("short", "at least 32 characters"),
+    ],
+)
+def test_validate_login_rate_limit_config_rejects_invalid_secret(
+    monkeypatch,
+    secret,
+    expected_error,
+):
+    monkeypatch.setattr(config, "RATE_LIMIT_HASH_SECRET", secret)
+
+    with pytest.raises(RuntimeError, match=expected_error):
+        config.validate_login_rate_limit_config()
+
+
+@pytest.mark.parametrize(
+    "setting",
+    [
+        "LOGIN_RATE_LIMIT_EMAIL_IP_MAX_ATTEMPTS",
+        "LOGIN_RATE_LIMIT_IP_MAX_ATTEMPTS",
+        "LOGIN_RATE_LIMIT_WINDOW_SECONDS",
+        "LOGIN_RATE_LIMIT_BLOCK_SECONDS",
+    ],
+)
+def test_validate_login_rate_limit_config_rejects_non_positive_values(
+    monkeypatch,
+    setting,
+):
+    monkeypatch.setattr(config, "RATE_LIMIT_HASH_SECRET", "x" * 48)
+    monkeypatch.setattr(config, setting, 0)
+
+    with pytest.raises(RuntimeError, match=setting):
+        config.validate_login_rate_limit_config()

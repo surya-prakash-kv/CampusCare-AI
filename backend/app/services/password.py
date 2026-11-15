@@ -1,3 +1,4 @@
+
 from argon2 import PasswordHasher
 
 
@@ -10,12 +11,19 @@ def hash_password(password: str) -> str:
 
 def verify_password(
     password: str,
-    password_hash: str
+    password_hash: str,
 ) -> bool:
     try:
         return password_hasher.verify(
             password_hash,
-            password
+            password,
         )
+    except Exception:
+        return False
+
+
+def password_needs_rehash(password_hash: str) -> bool:
+    try:
+        return password_hasher.check_needs_rehash(password_hash)
     except Exception:
         return False
