@@ -3,6 +3,7 @@ import psycopg
 from app.core.config import (
     DB_HOST,
     DB_PORT,
+    DB_CONNECT_TIMEOUT_SECONDS,
     DB_NAME,
     DB_USER,
     DB_PASSWORD,
@@ -19,6 +20,7 @@ def get_db_connection():
         dbname=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD,
+        connect_timeout=DB_CONNECT_TIMEOUT_SECONDS,
     )
 
     return connection

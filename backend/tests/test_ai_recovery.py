@@ -113,7 +113,7 @@ def test_lifespan_starts_and_stops_recovery_scheduler(
     monkeypatch,
 ):
     monkeypatch.setattr(
-        "app.main.validate_ai_recovery_config",
+        "app.main.validate_application_config",
         lambda: None,
     )
 

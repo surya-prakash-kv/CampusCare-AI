@@ -10,7 +10,7 @@ from app.api.auth import router as auth_router
 from app.api.complaints import router as complaints_router
 from app.core.config import (
     AI_RECOVERY_INTERVAL_SECONDS,
-    validate_ai_recovery_config,
+    validate_application_config,
 )
 from app.services.ai.recovery import recover_stale_classifications
 from app.api.ai_operations import router as ai_operations_router
@@ -35,7 +35,7 @@ async def ai_recovery_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    validate_ai_recovery_config()
+    validate_application_config()
 
     recovery_task = asyncio.create_task(
         ai_recovery_loop(),
