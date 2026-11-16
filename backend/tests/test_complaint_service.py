@@ -253,3 +253,74 @@ def test_change_complaint_status_rejects_same_status(
     create_history_mock.assert_not_called()
 
     db.transaction.assert_called_once_with()
+
+from app.services.complaint import get_complaint_details
+
+
+def test_student_can_view_own_complaint_details(monkeypatch):
+    complaint = (101, 1, None, "Title", "Description", "HOSTEL",
+                 "MEDIUM", "OPEN", None, None)
+
+    monkeypatch.setattr(
+        "app.services.complaint.get_complaint_by_id",
+        lambda db, complaint_id: complaint,
+    )
+
+    result = get_complaint_details(
+        db=None,
+        complaint_id=101,
+        current_user={"id": 1, "role": "STUDENT"},
+    )
+
+    assert result == complaint
+
+
+def test_student_cannot_view_another_students_complaint_details(monkeypatch):
+    complaint = (101, 1, None, "Title", "Description", "HOSTEL",
+                 "MEDIUM", "OPEN", None, None)
+
+    monkeypatch.setattr(
+        "app.services.complaint.get_complaint_by_id",
+        lambda db, complaint_id: complaint,
+    )
+
+    result = get_complaint_details(
+        db=None,
+        complaint_id=101,
+        current_user={"id": 8, "role": "STUDENT"},
+    )
+
+    assert result is None
+
+
+def test_admin_can_view_any_complaint_details(monkeypatch):
+    complaint = (101, 1, None, "Title", "Description", "HOSTEL",
+                 "MEDIUM", "OPEN", None, None)
+
+    monkeypatch.setattr(
+        "app.services.complaint.get_complaint_by_id",
+        lambda db, complaint_id: complaint,
+    )
+
+    result = get_complaint_details(
+        db=None,
+        complaint_id=101,
+        current_user={"id": 4, "role": "ADMIN"},
+    )
+
+    assert result == complaint
+
+
+def test_complaint_details_return_none_for_nonexistent_complaint(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.complaint.get_complaint_by_id",
+        lambda db, complaint_id: None,
+    )
+
+    result = get_complaint_details(
+        db=None,
+        complaint_id=999,
+        current_user={"id": 4, "role": "ADMIN"},
+    )
+
+    assert result is None

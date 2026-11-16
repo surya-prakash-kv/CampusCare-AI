@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.main import app, ai_recovery_loop, lifespan
+from app.main import app, ai_recovery_loop
 from app.repositories.complaint import (
     recover_stale_ai_classifications,
 )
@@ -114,7 +114,7 @@ def test_lifespan_starts_and_stops_recovery_scheduler(
 ):
     monkeypatch.setattr(
         "app.main.validate_application_config",
-        lambda: None,
+        lambda environment=None: None,
     )
 
     state = {"cancelled": False}
@@ -135,7 +135,7 @@ def test_lifespan_starts_and_stops_recovery_scheduler(
     async def run_lifespan():
         state["started"] = asyncio.Event()
 
-        async with lifespan(app):
+        async with app.router.lifespan_context(app):
             await state["started"].wait()
             assert state["cancelled"] is False
 

@@ -1,7 +1,8 @@
-from types import SimpleNamespace
+﻿from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from google.genai import errors
 from pydantic import ValidationError
 
 import app.services.ai.classifier as classifier
@@ -11,7 +12,7 @@ from app.services.ai.schemas import ComplaintClassification
 def test_classification_skipped_when_api_key_is_missing(monkeypatch):
     monkeypatch.setattr(
         classifier,
-        "get_openai_client",
+        "get_gemini_client",
         lambda: None,
     )
 
@@ -31,21 +32,19 @@ def test_classification_returns_structured_result(monkeypatch):
         reason="The complaint describes a hostel WiFi issue.",
     )
 
-    parse_mock = Mock(
-        return_value=SimpleNamespace(
-            output_parsed=expected
-        )
+    generate_mock = Mock(
+        return_value=SimpleNamespace(parsed=expected)
     )
 
     fake_client = SimpleNamespace(
-        responses=SimpleNamespace(
-            parse=parse_mock
+        models=SimpleNamespace(
+            generate_content=generate_mock
         )
     )
 
     monkeypatch.setattr(
         classifier,
-        "get_openai_client",
+        "get_gemini_client",
         lambda: fake_client,
     )
 
@@ -55,29 +54,36 @@ def test_classification_returns_structured_result(monkeypatch):
     )
 
     assert result == expected
+    generate_mock.assert_called_once()
 
-    parse_mock.assert_called_once()
+    call_arguments = generate_mock.call_args.kwargs
 
-    call_arguments = parse_mock.call_args.kwargs
+    assert call_arguments["model"] == classifier.GEMINI_MODEL
+    assert call_arguments["config"]["response_mime_type"] == "application/json"
+    assert (
+        call_arguments["config"]["response_schema"]
+        is ComplaintClassification
+    )
+    assert "Hostel WiFi not working" in call_arguments["contents"]
 
-    assert call_arguments["model"] == classifier.OPENAI_MODEL
-    assert call_arguments["text_format"] is ComplaintClassification
-    assert len(call_arguments["input"]) == 2
 
-def test_openai_failure_raises_classification_error(monkeypatch):
+def test_gemini_failure_raises_classification_error(monkeypatch):
+    generate_mock = Mock(
+        side_effect=errors.APIError(
+            500,
+            {"error": "Simulated API failure"},
+        )
+    )
+
     fake_client = SimpleNamespace(
-        responses=SimpleNamespace(
-            parse=Mock(
-                side_effect=classifier.OpenAIError(
-                    "Simulated API failure"
-                )
-            )
+        models=SimpleNamespace(
+            generate_content=generate_mock
         )
     )
 
     monkeypatch.setattr(
         classifier,
-        "get_openai_client",
+        "get_gemini_client",
         lambda: fake_client,
     )
 
@@ -87,20 +93,19 @@ def test_openai_failure_raises_classification_error(monkeypatch):
             description="Students cannot access the hostel WiFi.",
         )
 
+
 def test_classification_fails_when_parsed_output_is_missing(monkeypatch):
     fake_client = SimpleNamespace(
-        responses=SimpleNamespace(
-            parse=Mock(
-                return_value=SimpleNamespace(
-                    output_parsed=None
-                )
+        models=SimpleNamespace(
+            generate_content=Mock(
+                return_value=SimpleNamespace(parsed=None)
             )
         )
     )
 
     monkeypatch.setattr(
         classifier,
-        "get_openai_client",
+        "get_gemini_client",
         lambda: fake_client,
     )
 

@@ -285,3 +285,78 @@ def test_successful_login_clearing_failure_error_returns_503(
     assert response.json()["detail"] == (
         "Login service temporarily unavailable"
     )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "full_name": "A",
+            "email": "student@example.com",
+            "password": "StrongPass123!",
+        },
+        {
+            "full_name": "   ",
+            "email": "student@example.com",
+            "password": "StrongPass123!",
+        },
+        {
+            "full_name": "Test Student",
+            "email": "invalid-email",
+            "password": "StrongPass123!",
+        },
+        {
+            "full_name": "Test Student",
+            "email": "student@example.com",
+            "password": "short",
+        },
+        {
+            "full_name": "Test Student",
+            "email": "student@example.com",
+            "password": "x" * 129,
+        },
+    ],
+)
+def test_registration_rejects_invalid_payloads(client, payload):
+    response = client.post("/api/auth/register", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_registration_successfully_creates_student(client, monkeypatch):
+    db = MagicMock()
+    cursor = MagicMock()
+
+    cursor.fetchone.return_value = (
+        101,
+        "Test Student",
+        "student@example.com",
+        "STUDENT",
+    )
+    db.cursor.return_value.__enter__.return_value = cursor
+
+    app.dependency_overrides[get_db] = lambda: db
+
+    hash_mock = MagicMock(return_value="hashed-password")
+    monkeypatch.setattr("app.api.auth.hash_password", hash_mock)
+
+    response = client.post(
+        "/api/auth/register",
+        json={
+            "full_name": "  Test Student  ",
+            "email": "STUDENT@EXAMPLE.COM",
+            "password": "StrongPass123!",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["student"] == {
+        "id": 101,
+        "full_name": "Test Student",
+        "email": "student@example.com",
+        "role": "STUDENT",
+    }
+
+    hash_mock.assert_called_once_with("StrongPass123!")
+    cursor.execute.assert_called_once()
+    db.commit.assert_not_called()

@@ -1,14 +1,18 @@
-from openai import OpenAI
+﻿from google import genai
 
-from app.core.config import OPENAI_API_KEY
+from app.core.config import GEMINI_API_KEY
 
 
-def get_openai_client():
-    if not OPENAI_API_KEY:
+def get_gemini_client():
+    if not GEMINI_API_KEY:
         return None
 
-    return OpenAI(
-        api_key=OPENAI_API_KEY,
-        timeout=15.0,
-        max_retries=1,
+    return genai.Client(
+        api_key=GEMINI_API_KEY,
+        http_options={
+            "timeout": 15000,
+            "retry_options": {
+                "attempts": 2,
+            },
+        },
     )

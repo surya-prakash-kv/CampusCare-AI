@@ -1,4 +1,4 @@
-from uuid import uuid4
+﻿from uuid import uuid4
 
 from psycopg import Connection
 
@@ -30,7 +30,13 @@ def create_complaint(
                 priority,
                 status,
                 created_at,
-                updated_at;
+                updated_at,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_reason,
+                ai_classification_status,
+                ai_model;
             """,
             (
                 student_id,
@@ -90,10 +96,16 @@ def get_complaints_by_student(
                 priority,
                 status,
                 created_at,
-                updated_at
-            FROM complaints
-            WHERE student_id = %s
-            ORDER BY created_at DESC, id DESC;
+                updated_at,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_reason,
+                ai_classification_status,
+                ai_model
+                FROM complaints
+                WHERE student_id = %s
+                ORDER BY created_at DESC, id DESC;
             """,
             (student_id,)
         )
@@ -119,10 +131,16 @@ def get_complaint_by_id_for_update(
                 priority,
                 status,
                 created_at,
-                updated_at
-            FROM complaints
-            WHERE id = %s
-            FOR UPDATE;
+                updated_at,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_reason,
+                ai_classification_status,
+                ai_model
+                FROM complaints
+                WHERE id = %s
+                FOR UPDATE;
             """,
             (complaint_id,)
         )
@@ -148,9 +166,15 @@ def get_complaint_by_id(
                 priority,
                 status,
                 created_at,
-                updated_at
-            FROM complaints
-            WHERE id = %s;
+                updated_at,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_reason,
+                ai_classification_status,
+                ai_model
+                FROM complaints
+                WHERE id = %s;
             """,
             (complaint_id,)
         )
@@ -171,9 +195,15 @@ def get_all_complaints(db: Connection):
                 priority,
                 status,
                 created_at,
-                updated_at
-            FROM complaints
-            ORDER BY created_at DESC, id DESC;
+                updated_at,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_reason,
+                ai_classification_status,
+                ai_model
+                FROM complaints
+                ORDER BY created_at DESC, id DESC;
             """
         )
 
@@ -202,7 +232,13 @@ def update_complaint_status(
                 priority,
                 status,
                 created_at,
-                updated_at;
+                updated_at,
+                ai_suggested_category,
+                ai_suggested_priority,
+                ai_confidence,
+                ai_reason,
+                ai_classification_status,
+                ai_model;
             """,
             (status, complaint_id)
         )

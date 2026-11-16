@@ -1,7 +1,12 @@
+
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.db.connection import get_db
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/health",
@@ -22,6 +27,8 @@ def check_database_health(db=Depends(get_db)):
         }
 
     except Exception:
+        logger.exception("Database health check failed.")
+
         raise HTTPException(
             status_code=503,
             detail={

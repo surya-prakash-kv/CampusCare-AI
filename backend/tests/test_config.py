@@ -146,3 +146,121 @@ def test_validate_login_rate_limit_config_rejects_non_positive_values(
 
     with pytest.raises(RuntimeError, match=setting):
         config.validate_login_rate_limit_config()
+
+def test_validate_environment_config_accepts_development(monkeypatch):
+    monkeypatch.setattr(config, "APP_ENV", "development")
+    monkeypatch.setattr(config, "CORS_ALLOWED_ORIGINS", ())
+
+    config.validate_environment_config()
+
+
+def test_validate_environment_config_accepts_production(monkeypatch):
+    monkeypatch.setattr(config, "APP_ENV", "production")
+    monkeypatch.setattr(
+        config,
+        "CORS_ALLOWED_ORIGINS",
+        ("https://campuscare.example.com",),
+    )
+
+    config.validate_environment_config()
+
+
+@pytest.mark.parametrize(
+    "environment",
+    ["", "dev", "staging", "invalid"],
+)
+def test_validate_environment_config_rejects_invalid_environment(
+    monkeypatch,
+    environment,
+):
+    monkeypatch.setattr(config, "APP_ENV", environment)
+
+    with pytest.raises(
+        RuntimeError,
+        match="APP_ENV must be",
+    ):
+        config.validate_environment_config()
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "*",
+        "https://*",
+        "ftp://campuscare.example.com",
+        "https://campuscare.example.com/",
+    ],
+)
+def test_validate_environment_config_rejects_invalid_cors_origins(
+    monkeypatch,
+    origin,
+):
+    monkeypatch.setattr(config, "APP_ENV", "production")
+    monkeypatch.setattr(
+        config,
+        "CORS_ALLOWED_ORIGINS",
+        (origin,),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="CORS_ALLOWED_ORIGINS",
+    ):
+        config.validate_environment_config()
+
+
+@pytest.mark.parametrize(
+    "level",
+    ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+)
+def test_validate_logging_config_accepts_valid_levels(
+    monkeypatch,
+    level,
+):
+    monkeypatch.setattr(config, "LOG_LEVEL", level)
+
+    config.validate_logging_config()
+
+
+@pytest.mark.parametrize(
+    "level",
+    ["", "INVALID", "TRACE", "123"],
+)
+def test_validate_logging_config_rejects_invalid_levels(
+    monkeypatch,
+    level,
+):
+    monkeypatch.setattr(config, "LOG_LEVEL", level)
+
+    with pytest.raises(
+        RuntimeError,
+        match="LOG_LEVEL",
+    ):
+        config.validate_logging_config()
+
+@pytest.mark.parametrize("port", [1, 65535])
+def test_validate_database_config_accepts_valid_port_boundaries(
+    monkeypatch,
+    port,
+):
+    monkeypatch.setattr(config, "DB_PORT", port)
+    monkeypatch.setattr(config, "DB_NAME", "campuscare_ai")
+    monkeypatch.setattr(config, "DB_USER", "postgres")
+    monkeypatch.setattr(config, "DB_PASSWORD", "test-password")
+    monkeypatch.setattr(config, "DB_CONNECT_TIMEOUT_SECONDS", 5)
+
+    config.validate_database_config()
+
+
+@pytest.mark.parametrize("port", [0, 65536])
+def test_validate_database_config_rejects_invalid_port_boundaries(
+    monkeypatch,
+    port,
+):
+    monkeypatch.setattr(config, "DB_PORT", port)
+
+    with pytest.raises(
+        RuntimeError,
+        match="DB_PORT must be between 1 and 65535",
+    ):
+        config.validate_database_config()

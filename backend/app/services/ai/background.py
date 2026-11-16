@@ -2,7 +2,7 @@
 import logging
 from uuid import UUID
 
-from app.core.config import OPENAI_MODEL
+from app.core.config import GEMINI_MODEL
 from app.db.connection import get_db_connection
 from app.repositories.complaint import (
     update_ai_classification,
@@ -64,7 +64,7 @@ def process_complaint_classification(
                 suggested_priority=classification.suggested_priority,
                 confidence=classification.confidence,
                 reason=classification.reason,
-                model=OPENAI_MODEL,
+                model=GEMINI_MODEL,
             )
 
             if updated:
@@ -72,7 +72,7 @@ def process_complaint_classification(
                     "AI classification completed successfully "
                     "for complaint %s using model %s.",
                     complaint_id,
-                    OPENAI_MODEL,
+                    GEMINI_MODEL,
                 )
             else:
                 logger.warning(

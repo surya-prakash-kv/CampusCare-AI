@@ -54,6 +54,15 @@ class ComplaintResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    ai_suggested_category: str | None = None
+    ai_suggested_priority: Literal["LOW", "MEDIUM", "HIGH", "URGENT"] | None = None
+    ai_confidence: float | None = None
+    ai_reason: str | None = None
+    ai_classification_status: Literal[
+        "NOT_STARTED", "PENDING", "COMPLETED", "FAILED", "SKIPPED"
+    ]
+    ai_model: str | None = None
+
 class ComplaintStatusUpdateRequest(BaseModel):
     status: Literal[
         "OPEN",

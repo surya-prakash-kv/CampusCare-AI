@@ -1,21 +1,51 @@
+
 import os
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
+
+# Application Environment
+APP_ENV = os.getenv(
+    "APP_ENV",
+    "development",
+).strip().lower()
+
+LOG_LEVEL = os.getenv(
+    "LOG_LEVEL",
+    "INFO",
+).strip().upper()
+
+CORS_ALLOWED_ORIGINS = tuple(
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "",
+    ).split(",")
+    if origin.strip()
+)
+
+
+# Database Configuration
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "5432"))
+
 DB_CONNECT_TIMEOUT_SECONDS = int(
     os.getenv("DB_CONNECT_TIMEOUT_SECONDS", "5")
 )
+
 DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna")
 
+# AI Configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+
+
+# Login Rate Limiting
 RATE_LIMIT_HASH_SECRET = os.getenv("RATE_LIMIT_HASH_SECRET")
 
 LOGIN_RATE_LIMIT_EMAIL_IP_MAX_ATTEMPTS = int(
@@ -34,6 +64,8 @@ LOGIN_RATE_LIMIT_BLOCK_SECONDS = int(
     os.getenv("LOGIN_RATE_LIMIT_BLOCK_SECONDS", "900")
 )
 
+
+# AI Recovery Configuration
 AI_RECOVERY_INTERVAL_SECONDS = int(
     os.getenv("AI_RECOVERY_INTERVAL_SECONDS", "30")
 )
@@ -47,7 +79,44 @@ AI_RECOVERY_BATCH_SIZE = int(
 )
 
 
+# JWT Configuration
+JWT_SECRET = os.getenv("JWT_SECRET")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+)
+
+
+def validate_environment_config(environment=None):
+    environment = APP_ENV if environment is None else environment
+    if environment not in {
+        "development",
+        "testing",
+        "production",
+    }:
+        raise RuntimeError(
+            "APP_ENV must be development, testing, or production"
+        )
+
+    for origin in CORS_ALLOWED_ORIGINS:
+        if (
+            not origin.startswith(("http://", "https://"))
+            or "*" in origin
+            or origin.endswith("/")
+        ):
+            raise RuntimeError(
+                "CORS_ALLOWED_ORIGINS must contain exact HTTP(S) "
+                "origins without wildcards or trailing slashes"
+            )
+
+
 def validate_database_config():
+    if not 1 <= DB_PORT <= 65535:
+        raise RuntimeError(
+            "DB_PORT must be between 1 and 65535"
+        )
+
     required_settings = {
         "DB_NAME": DB_NAME,
         "DB_USER": DB_USER,
@@ -70,14 +139,6 @@ def validate_database_config():
         raise RuntimeError(
             "DB_CONNECT_TIMEOUT_SECONDS must be greater than zero"
         )
-
-
-JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-
-ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
-)
 
 
 def validate_jwt_config():
@@ -119,6 +180,7 @@ def validate_ai_recovery_config():
             + ", ".join(invalid_settings)
         )
 
+
 def validate_login_rate_limit_config():
     if not RATE_LIMIT_HASH_SECRET:
         raise RuntimeError(
@@ -157,9 +219,24 @@ def validate_login_rate_limit_config():
             + ", ".join(invalid_settings)
         )
 
+def validate_logging_config():
+    import logging
 
-def validate_application_config():
+    if not hasattr(logging, LOG_LEVEL):
+        raise RuntimeError(
+            "LOG_LEVEL must be a valid Python logging level"
+        )
+
+    if not isinstance(getattr(logging, LOG_LEVEL), int):
+        raise RuntimeError(
+            "LOG_LEVEL must be a valid Python logging level"
+        )
+
+
+def validate_application_config(environment=None):
+    validate_environment_config(environment)
     validate_database_config()
     validate_jwt_config()
     validate_ai_recovery_config()
     validate_login_rate_limit_config()
+    validate_logging_config()

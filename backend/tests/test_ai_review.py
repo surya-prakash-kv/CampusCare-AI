@@ -414,3 +414,95 @@ def test_admin_can_view_ai_review_history(client, monkeypatch):
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["decision"] == "ACCEPTED"
+
+
+@pytest.mark.parametrize("complaint_id", [0, -1])
+@pytest.mark.parametrize(
+    ("method", "path", "payload"),
+    [
+        (
+            "GET",
+            "/api/complaints/{complaint_id}",
+            None,
+        ),
+        (
+            "PATCH",
+            "/api/complaints/admin/{complaint_id}/status",
+            {
+                "status": "IN_PROGRESS",
+                "remarks": "Testing invalid complaint ID",
+            },
+        ),
+        (
+            "GET",
+            "/api/complaints/{complaint_id}/history",
+            None,
+        ),
+        (
+            "GET",
+            "/api/complaints/admin/{complaint_id}/ai-review/history",
+            None,
+        ),
+        (
+            "POST",
+            "/api/complaints/admin/{complaint_id}/ai-review",
+            {
+                "decision": "ACCEPTED",
+            },
+        ),
+    ],
+)
+def test_complaint_endpoints_reject_non_positive_ids(
+    client,
+    complaint_id,
+    method,
+    path,
+    payload,
+):
+    app.dependency_overrides[get_current_user] = override_user("ADMIN")
+    app.dependency_overrides[get_db] = lambda: MagicMock()
+
+    url = path.format(complaint_id=complaint_id)
+
+    response = client.request(
+        method=method,
+        url=url,
+        json=payload,
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"decision": "PENDING"},
+        {
+            "decision": "MODIFIED",
+            "final_category": "INVALID_CATEGORY",
+            "final_priority": "HIGH",
+        },
+        {
+            "decision": "MODIFIED",
+            "final_category": "HOSTEL",
+            "final_priority": "CRITICAL",
+        },
+        {
+            "decision": "ACCEPTED",
+            "remarks": "x" * 1001,
+        },
+    ],
+)
+def test_ai_review_api_rejects_invalid_payloads(
+    client,
+    payload,
+):
+    app.dependency_overrides[get_current_user] = override_user("ADMIN")
+    app.dependency_overrides[get_db] = lambda: MagicMock()
+
+    response = client.post(
+        "/api/complaints/admin/101/ai-review",
+        json=payload,
+    )
+
+    assert response.status_code == 422

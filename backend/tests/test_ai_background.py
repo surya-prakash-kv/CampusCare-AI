@@ -1,4 +1,4 @@
-
+﻿
 import logging
 from unittest.mock import MagicMock
 from uuid import uuid4
@@ -62,6 +62,8 @@ def test_successful_classification_is_persisted(monkeypatch):
     assert arguments["suggested_category"] == "HOSTEL"
     assert arguments["suggested_priority"] == "HIGH"
     assert arguments["confidence"] == 0.95
+    assert arguments["reason"] == classification.reason
+    assert arguments["model"] == background.GEMINI_MODEL
 
 
 def test_missing_api_key_marks_classification_skipped(monkeypatch):
@@ -148,7 +150,7 @@ def test_ai_classification_error_marks_status_failed(monkeypatch):
     db.cursor.return_value.__enter__.return_value = cursor
 
     def raise_ai_error(**kwargs):
-        raise AIClassificationError("OpenAI API request failed")
+        raise AIClassificationError("Gemini API request failed")
 
     monkeypatch.setattr(
         background,

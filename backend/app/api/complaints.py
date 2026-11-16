@@ -4,6 +4,7 @@ from fastapi import (
     Depends,
     status,
     HTTPException,
+    Path,
 )
 from psycopg import Connection
 
@@ -37,7 +38,9 @@ from app.services.ai_review import (
 )
 from app.repositories.complaint import (
     get_complaint_ai_review_history,
+    get_complaint_by_id,
 )
+from typing import Annotated
 
 
 router = APIRouter(
@@ -84,6 +87,12 @@ def create_student_complaint(
         "status": complaint[7],
         "created_at": complaint[8],
         "updated_at": complaint[9],
+        "ai_suggested_category": complaint[10],
+        "ai_suggested_priority": complaint[11],
+        "ai_confidence": complaint[12],
+        "ai_reason": complaint[13],
+        "ai_classification_status": complaint[14],
+        "ai_model": complaint[15],
     }
 
 
@@ -112,6 +121,12 @@ def read_my_complaints(
             "status": complaint[7],
             "created_at": complaint[8],
             "updated_at": complaint[9],
+            "ai_suggested_category": complaint[10],
+            "ai_suggested_priority": complaint[11],
+            "ai_confidence": complaint[12],
+            "ai_reason": complaint[13],
+            "ai_classification_status": complaint[14],
+            "ai_model": complaint[15],
         }
         for complaint in complaints
     ]
@@ -122,7 +137,7 @@ def read_my_complaints(
     response_model=ComplaintResponse,
 )
 def read_complaint_details(
-    complaint_id: int,
+    complaint_id: Annotated[int, Path(gt=0)],
     db: Connection = Depends(get_db),
     current_user: dict = Depends(
         require_role("STUDENT", "ADMIN")
@@ -151,6 +166,12 @@ def read_complaint_details(
         "status": complaint[7],
         "created_at": complaint[8],
         "updated_at": complaint[9],
+        "ai_suggested_category": complaint[10],
+        "ai_suggested_priority": complaint[11],
+        "ai_confidence": complaint[12],
+        "ai_reason": complaint[13],
+        "ai_classification_status": complaint[14],
+        "ai_model": complaint[15],
     }
 
 
@@ -176,6 +197,12 @@ def read_all_complaints(
             "status": complaint[7],
             "created_at": complaint[8],
             "updated_at": complaint[9],
+            "ai_suggested_category": complaint[10],
+            "ai_suggested_priority": complaint[11],
+            "ai_confidence": complaint[12],
+            "ai_reason": complaint[13],
+            "ai_classification_status": complaint[14],
+            "ai_model": complaint[15],
         }
         for complaint in complaints
     ]
@@ -186,7 +213,7 @@ def read_all_complaints(
     response_model=ComplaintResponse,
 )
 def update_status(
-    complaint_id: int,
+    complaint_id: Annotated[int, Path(gt=0)],
     status_data: ComplaintStatusUpdateRequest,
     db: Connection = Depends(get_db),
     current_user: dict = Depends(require_role("ADMIN")),
@@ -222,6 +249,12 @@ def update_status(
         "status": complaint[7],
         "created_at": complaint[8],
         "updated_at": complaint[9],
+        "ai_suggested_category": complaint[10],
+        "ai_suggested_priority": complaint[11],
+        "ai_confidence": complaint[12],
+        "ai_reason": complaint[13],
+        "ai_classification_status": complaint[14],
+        "ai_model": complaint[15],
     }
 
 
@@ -230,7 +263,7 @@ def update_status(
     response_model=list[ComplaintHistoryResponse],
 )
 def get_history(
-    complaint_id: int,
+    complaint_id: Annotated[int, Path(gt=0)],
     db: Connection = Depends(get_db),
     current_user: dict = Depends(
         require_role("STUDENT", "ADMIN")
@@ -298,10 +331,21 @@ def read_pending_ai_reviews(
     response_model=list[AIReviewResponse],
 )
 def read_ai_review_history(
-    complaint_id: int,
+    complaint_id: Annotated[int, Path(gt=0)],
     db: Connection = Depends(get_db),
     current_user: dict = Depends(require_role("ADMIN")),
 ):
+    complaint = get_complaint_by_id(
+        db=db,
+        complaint_id=complaint_id,
+    )
+
+    if complaint is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Complaint not found",
+        )
+
     history = get_complaint_ai_review_history(
         db=db,
         complaint_id=complaint_id,
@@ -327,15 +371,13 @@ def read_ai_review_history(
         for row in history
     ]
 
-
-
 @router.post(
     "/admin/{complaint_id}/ai-review",
     response_model=AIReviewResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def submit_ai_review(
-    complaint_id: int,
+    complaint_id: Annotated[int, Path(gt=0)],
     review_data: AIReviewRequest,
     db: Connection = Depends(get_db),
     current_user: dict = Depends(require_role("ADMIN")),
