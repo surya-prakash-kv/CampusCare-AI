@@ -26,7 +26,6 @@ CORS_ALLOWED_ORIGINS = tuple(
     if origin.strip()
 )
 
-
 # Database Configuration
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "5432"))
@@ -38,7 +37,11 @@ DB_CONNECT_TIMEOUT_SECONDS = int(
 DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_SSLMODE = os.getenv("DB_SSLMODE", "disable").strip().lower()
 
+
+# Vercel Cron Configuration
+CRON_SECRET = os.getenv("CRON_SECRET")
 
 # AI Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -180,6 +183,19 @@ def validate_ai_recovery_config():
             + ", ".join(invalid_settings)
         )
 
+def validate_gemini_config(environment=None):
+    environment = APP_ENV if environment is None else environment
+
+    if environment == "production":
+        if not GEMINI_API_KEY:
+            raise RuntimeError(
+                "GEMINI_API_KEY is not configured"
+            )
+
+        if not GEMINI_MODEL.strip():
+            raise RuntimeError(
+                "GEMINI_MODEL is not configured"
+            )
 
 def validate_login_rate_limit_config():
     if not RATE_LIMIT_HASH_SECRET:
@@ -219,6 +235,20 @@ def validate_login_rate_limit_config():
             + ", ".join(invalid_settings)
         )
 
+def validate_cron_config(environment=None):
+    environment = APP_ENV if environment is None else environment
+
+    if environment == "production":
+        if not CRON_SECRET:
+            raise RuntimeError(
+                "CRON_SECRET is not configured"
+            )
+
+        if len(CRON_SECRET) < 32:
+            raise RuntimeError(
+                "CRON_SECRET must contain at least 32 characters"
+            )
+        
 def validate_logging_config():
     import logging
 
@@ -238,5 +268,7 @@ def validate_application_config(environment=None):
     validate_database_config()
     validate_jwt_config()
     validate_ai_recovery_config()
+    validate_gemini_config(environment)
     validate_login_rate_limit_config()
+    validate_cron_config(environment)
     validate_logging_config()

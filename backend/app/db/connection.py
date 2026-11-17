@@ -7,6 +7,7 @@ from app.core.config import (
     DB_NAME,
     DB_USER,
     DB_PASSWORD,
+    DB_SSLMODE,
     validate_database_config,
 )
 
@@ -20,6 +21,7 @@ def get_db_connection():
         dbname=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD,
+        sslmode=DB_SSLMODE,
         connect_timeout=DB_CONNECT_TIMEOUT_SECONDS,
     )
 

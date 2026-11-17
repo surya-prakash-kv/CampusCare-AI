@@ -1,0 +1,27 @@
+﻿name: CampusCare AI Recovery
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger AI classification recovery
+        env:
+          API_URL: ${{ secrets.CAMPUSCARE_API_URL }}
+          CRON_SECRET: ${{ secrets.CAMPUSCARE_CRON_SECRET }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Required GitHub secrets are missing."
+            exit 1
+          fi
+
+          curl --fail-with-body --silent --show-error \
+            --retry 2 \
+            --retry-delay 5 \
+            --max-time 120 \
+            "$API_URL/api/internal/ai-recovery" \
+            -H "Authorization: Bearer $CRON_SECRET"

@@ -1,4 +1,3 @@
-
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -10,6 +9,7 @@ from app.api.health import router as health_router
 from app.api.auth import router as auth_router
 from app.api.complaints import router as complaints_router
 from app.api.ai_operations import router as ai_operations_router
+from app.api.cron import router as cron_router
 
 from app.core.config import (
     APP_ENV,
@@ -73,26 +73,35 @@ def create_app(
         validate_application_config(environment)
         configure_logging()
 
-        recovery_task = asyncio.create_task(
-            ai_recovery_loop(),
-            name="ai-classification-recovery",
-        )
+        recovery_task = None
 
-        logger.info(
-            "AI classification recovery scheduler started."
-        )
+        if not is_production:
+            recovery_task = asyncio.create_task(
+                ai_recovery_loop(),
+                name="ai-classification-recovery",
+            )
+
+            logger.info(
+                "AI classification recovery scheduler started."
+            )
+        else:
+            logger.info(
+                "Background AI recovery scheduler disabled "
+                "for serverless production."
+            )
 
         try:
             yield
         finally:
-            recovery_task.cancel()
+            if recovery_task is not None:
+                recovery_task.cancel()
 
-            try:
-                await recovery_task
-            except asyncio.CancelledError:
-                logger.info(
-                    "AI classification recovery scheduler stopped."
-                )
+                try:
+                    await recovery_task
+                except asyncio.CancelledError:
+                    logger.info(
+                        "AI classification recovery scheduler stopped."
+                    )
 
     application = FastAPI(
         title="CampusCare AI",
@@ -134,6 +143,7 @@ def create_app(
     application.include_router(auth_router)
     application.include_router(complaints_router)
     application.include_router(ai_operations_router)
+    application.include_router(cron_router)
 
     return application
 

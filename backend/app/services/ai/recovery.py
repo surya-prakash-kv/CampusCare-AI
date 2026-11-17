@@ -73,3 +73,4 @@ def recover_stale_classifications():
         logger.exception(
             "AI classification recovery cycle failed."
         )
+        raise

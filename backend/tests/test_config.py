@@ -264,3 +264,20 @@ def test_validate_database_config_rejects_invalid_port_boundaries(
         match="DB_PORT must be between 1 and 65535",
     ):
         config.validate_database_config()
+
+
+def test_validate_gemini_config_rejects_missing_production_api_key(monkeypatch):
+    monkeypatch.setattr(config, "GEMINI_API_KEY", None)
+
+    with pytest.raises(
+        RuntimeError,
+        match="GEMINI_API_KEY is not configured",
+    ):
+        config.validate_gemini_config("production")
+
+
+def test_validate_gemini_config_accepts_valid_production_settings(monkeypatch):
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "test-gemini-api-key")
+    monkeypatch.setattr(config, "GEMINI_MODEL", "gemini-3.5-flash-lite")
+
+    config.validate_gemini_config("production")
